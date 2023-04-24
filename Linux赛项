@@ -1,64 +1,56 @@
 仅允许client客户端进行ssh访问，其余所有主机的请求都应该拒绝；
 配置client只能在Chinaskills23用户环境下可以免秘钥登录，端口号为2022，并且拥有root控制权限。
 
-1.在SSH服务器编辑配置文件/etc/ssh/sshd_config
-2.添加或修改以下参数
-Port 2022
-PermitRootLogin no
-PasswordAuthentication no
-PubkeyAuthentication yes
-AllowUsers Chinaskills23
-3.重启SSH服务systemctl restart sshd	(注意防火墙设置和SELinux拦截)
-4.在Client客户端以Chinaskills23用户登录	(注意SSH服务器也同样需要新建Chinaskills23用户)
-5.Client创建SSH秘钥对		ssh-keygen -t rsa
-6.将公钥复制到SSH服务器的授权文件：ssh-copy-id -p 2022 Chinaskills23@(SSH服务器IP)
-7.测试连接即可
+        1.在SSH服务器编辑配置文件/etc/ssh/sshd_config
+        2.添加或修改以下参数
+              Port 2022
+              PermitRootLogin no
+              PasswordAuthentication no
+              PubkeyAuthentication yes
+              AllowUsers Chinaskills23
+        3.重启SSH服务systemctl restart sshd	(注意防火墙设置和SELinux拦截)
+        4.在Client客户端以Chinaskills23用户登录	(注意SSH服务器也同样需要新建Chinaskills23用户)
+        5.Client创建SSH秘钥对		ssh-keygen -t rsa
+        6.将公钥复制到SSH服务器的授权文件：ssh-copy-id -p 2022 Chinaskills23@(SSH服务器IP)
+        7.测试连接即可
+        
+        
 在Router上搭建CA证书，CA根证书路径/CA/cacert.pem；签发数字证书，颁发者信息： 国家 = CN 单位 = Inc 组织机构 = www.skills.com 公用名 = Skill Global Root CA
+        1.创建目录/CA
+        2.通过指令创建即可
+        openssl genrsa /CA/ca.key 2048
+        openssl req -new -key /CA/ca.key -out /CA/ca.csr -subj “/C=CN/O=Inc/OU=www.skills.com/CN=Skill Global Root CA”
+        openssl x509 -req -in /CA/ca.csr -signkey /CA/ca.key -out /CA/ca.crt
 
-openssl genrsa /CA/ca.key 2048
-openssl req -new -key /CA/ca.key -out /CA/ca.csr -subj “/C=CN/O=Inc/OU=www.skills.com/CN=Skill Global Root CA”
-openssl x509 -req -in /CA/ca.csr -signkey /CA/ca.key -out /CA/ca.crt
 
-1.创建指定目录
-mkdir /CA
-chmod 700 /CA
-cd /CA
-2.生成CA根证书的私钥
-openssl genrsa -out /CA/cakey.pem 2048
-chmod 400 /CA/cakey.pem
-3.生成CA根证书的CSR文件
-openssl req -new -key /CA/cakey.pem -out /CA/cacsr.pem
-填写指定信息
-4.使用自签名的方式生成CA根证书
-openssl x509 -req -days 365 -in /CA/cacsr.pem -signkey /CA/cakey.pem -out /CA/cacert.pem
-chmod 444 /CA/cacert.pem
 
-DISK(RAID5) （1）在虚拟机上添加4个1G的硬盘； （2）创建raid5，其中一个作为热备盘，设备名为md0； （3）将md0设置为LVM，设备为/dev/vg01/lv01； （4）格式化为ext4文件系统； （5）开机自动挂载到/data目录。
-1.在虚拟机上添加4个1G的硬盘(/dev/sdb  ...  /dev/sde)
-2.创建Raid5，并指定其中一个硬盘作为热备盘设备命名为md0
-sudo mdadm --create /dev/md0 --level=5 --raid-devices=3 /dev/sdb /dev/sdc /dev/sdd --spare-devices=1 /dev/sde
-3.将md0设置为LVM设备为/dev/vg01/lv01
-pvcreate /dev/md0
-vgcrrate vg01 /dev/md0
-lvcreate -l 100%VG -n lv01 vg01
-4.格式化为ext4系统
-mkfs.ext4 /dev/vg01/lv01
-5.创建挂载点/data,并将其添加到/etc/fstab中设置开机自动挂载
-mkdir /data
-echo ‘/dev/vg01/lv01 /data ext4 defaults 0 0 =’ | sudo tee -a /etc/fstab
-sudo mount -a
+DISK(RAID5) （1）在虚拟机上添加4个1G的硬盘； （2）创建raid5，其中一个作为热备盘，设备名为md0； （3）将md0设置为LVM，设备为/dev/vg01/lv01； 
+（4）格式化为ext4文件系统； （5）开机自动挂载到/data目录。
+        1.在虚拟机上添加4个1G的硬盘(/dev/sdb  ...  /dev/sde)
+        2.创建Raid5，并指定其中一个硬盘作为热备盘设备命名为md0
+            sudo mdadm --create /dev/md0 --level=5 --raid-devices=3 /dev/sdb /dev/sdc /dev/sdd --spare-devices=1 /dev/sde
+        3.将md0设置为LVM设备为/dev/vg01/lv01
+            pvcreate /dev/md0
+            vgcrrate vg01 /dev/md0
+            lvcreate -l 100%VG -n lv01 vg01
+        4.格式化为ext4系统
+            mkfs.ext4 /dev/vg01/lv01
+        5.创建挂载点/data,并将其添加到/etc/fstab中设置开机自动挂载
+            mkdir /data
+            echo ‘/dev/vg01/lv01 /data ext4 defaults 0 0 =’ | sudo tee -a /etc/fstab
+            sudo mount -a
 配置NFS。共享/data/share目录； 用于存储server01主机(192.168.100.200)的web数据； （3）仅允许service01主机(192.168.100.200)访问该共享。
-1.安装软件包：yum install nfs-utils
-2.编辑/etc/exports，并添加	/data/share 192.168.100.200(rw,sync,no_root_squash)
-3.启动服务systemctl start nfs; systemctl enable nfs
-4.配置防火墙允许通过nfs服务
-firewalld-cmd --permanent --zone=public --add-services=nfs
-firewalld-cmd --permanent --zone=public --add-services=mountd
-firewalld-cmd --permanent --zone=public --add-services=rpc-bind
-firewalld-cmd --reload
-5.在客户端挂载NFS
-mkdir /mnt/nfs
-mount 192.168.100.200:/data/share /mnt/nfs
+        1.安装软件包：yum install nfs-utils
+        2.编辑/etc/exports，并添加	/data/share 192.168.100.200(rw,sync,no_root_squash)
+        3.启动服务systemctl start nfs; systemctl enable nfs
+        4.配置防火墙允许通过nfs服务
+            firewalld-cmd --permanent --zone=public --add-services=nfs
+            firewalld-cmd --permanent --zone=public --add-services=mountd
+            firewalld-cmd --permanent --zone=public --add-services=rpc-bind
+            firewalld-cmd --reload
+        5.在客户端挂载NFS
+            mkdir /mnt/nfs
+            mount 192.168.100.200:/data/share /mnt/nfs
 
 Webserver配置
 （1）安装web服务相关软件包；(yum install httpd mod_ssl)
@@ -89,62 +81,36 @@ CN = skill Global Root CA
 （16）当用户使用http访问时自动跳转到https安全连接；
 （17）当用户使用sdskills.com或any.sdskills.com（any代表任意网址前缀）访问时，自动跳转到www.sdskills.com。
 
-第一步创建秘钥  openssl genrsa -out cacert.key 2048
-第二步创建申请证书 openssl req -new -key cacert.key -out /CA/cacert.csr -subj "/C=CN/O=Inc/OU=www.skills.com/CN=Skill Global Root CA"
-第三步自签名证书： openssl x509 -req -in cacert.csr -signkey cacert.key -out /CA/cacert.pem
+        1.安装ApacheWeb 软件包 yum install httpd mod_ssl -y
+        2.创建目录用来存放网页文件 mkdir -p /data/share/htdocs/skills
+        3.将RServer搭建的CA证书和数字证书复制到Server01上
+        mkdir /CA/private
+        cd /CA/private
+        openssl genrsa -out /CA/server.key 2048
+        openssl req -new -key /CA/server.key -out /CA/server.csr -subj “/C=CN/ST=China/L=ShangDong/O=skills/OU=Operations Departments/CN=*.skills.com”
+        openssl x509 -req -in /CA/server.csr -CA /CA/ca.crt -CAkey /CA/ca.key -CAcreateserial -out /CA/server.crt
 
-在Server01上创建证书申请，然后发给RouterServer进行签名
-第四步：Server01创建秘钥：openssl genrsa -out /CA/webserver.key 2048
-第五步：创建申请证书：openssl req -new -key webserver.key -out /CA/webserver.csr -subj "/C=CN/ST=China/L=ShangDong/O=skills/OU=Operations Departments/CN=*.sdskills.com"
-第六步：用RouterServer的证书给自己的申请签名
-openssl x509 -req -in webserver.csr -CA /CA/cacert.pem -CAkey /CA/cacert.key -CAcreateserial -out /CA/webserver.pem
-
-
-
-
-
-
-
-
-1.安装ApacheWeb 软件包 yum install httpd mod_ssl -y
-2.创建目录用来存放网页文件 mkdir -p /data/share/htdocs/skills
-3.将RServer搭建的CA证书和数字证书复制到Server01上
-mkdir /CA/private
-cd /CA/private
-openssl genrsa -out /CA/server.key 2048
-openssl req -new -key /CA/server.key -out /CA/server.csr -subj “/C=CN/ST=China/L=ShangDong/O=skills/OU=Operations Departments/CN=*.skills.com”
-openssl x509 -req -in /CA/server.csr -CA /CA/ca.crt -CAkey /CA/ca.key -CAcreateserial -out /CA/server.crt
-
-
-
-
-
-将Server01的私钥和证书复制到指定目录
-4.根据要求配置虚拟主机并设置HTTPS
-vim /etc/httpd/conf.d/vhost.conf
-添加以下内容
-<VirtualHost *:80>
-ServerName www.sdskills.com
-Redirect permanent / https://www.sdskills.com/
-</VirtualHost>
-<VirtualHost *:443>
-ServerName www.sdskills.com
-SSLEngine On
-SSLCertificateFile /etc/httpd/conf/server01cert.pem
-SSLCertificateKeyFile /etc/httpd/conf/server01key.pem
-SSLCertificateChainFile /CA/cacert.pem
-DocumentRoot /var/www/html
-<Directory “/var/www/html”>
-Options FollowSymLinks
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-5.配置自动跳转到HTTPS
-
-
-
-
+        将Server01的私钥和证书复制到指定目录
+        4.根据要求配置虚拟主机并设置HTTPS
+        vim /etc/httpd/conf.d/vhost.conf
+        添加以下内容
+            <VirtualHost *:80>
+                  ServerName www.sdskills.com
+                  Redirect permanent / https://www.sdskills.com/
+            </VirtualHost>
+            <VirtualHost *:443>
+                ServerName www.sdskills.com
+                SSLEngine On
+                SSLCertificateFile /etc/httpd/conf/server01cert.pem
+                SSLCertificateKeyFile /etc/httpd/conf/server01key.pem
+                SSLCertificateChainFile /CA/cacert.pem
+                DocumentRoot /var/www/html
+                <Directory “/var/www/html”>
+                      Options FollowSymLinks
+                      AllowOverride All
+                      Require all granted
+                </Directory>
+            </VirtualHost>
 
 
 
@@ -157,45 +123,45 @@ Dovecot
 sdskills.com的邮件接收服务器
 支持imaps(993)协议连接，使用Rserver颁发的证书，证书路径/CA/cacert.pem
 请保留至少两个用户已成功登录并能正常收发邮件，以方便测试
-1安装所需软件包
-sudo yum install -y postfix dovecot cyrus-sasl cyrus-sasl-plain cyrus-sasl-md5
-2.配置Postfix
-vim /etc/postfix/main.cf
-添加以下内容
-smtp_banner = $myhostname ESMTP $mail_name
-biff = no
-append_dot_mydomain = no
-smtpd_tls_cert_file = /CA/cacert.pem
-smtpd_tls_key_file = /CA/cacert.pem
-smtpd_use_tls = yes
-smtpd_tls_auth_enable = yes
-smtpd_sasl_auth_enable = yes
-smtpd_sasl_type = dovecot
-smtpd_sasl_tls_security_options = noanonymous
-smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
-myhostname = sdskills.com
-mydomain = sdskills.com
-myorigin = sdskills.com
-mydestination = localhost
-mynetworks = 127.0.0.0/8
-inet_interfaces = all
-保存退出
-3.配置Dovecot
-vim /etc/dovecot/dovecot.conf
-disable_plaintext_auth = no
-mail_location = mbox:~/mail:INBOX=/var/mail/%u
-ssl_cert = </CA/cacert.pem
-ssl_key = </CA/cacert.pem
-auth_mechanisms = plain login
-4.重启服务 systemctl restart postfix dovecot
-5.创建user用户，编写脚本
-for((i=1 ; i<= 99; i++)) 
-do
-username=”user$i”
-password=”nichenyang”
-useradd -m -s /bin/bash $username
-echo “$password” | passwd --stdin $username
-mkdir /var/mail/$username
-chown -R $username:$username /var/mail/$username
-done
+        1安装所需软件包
+            sudo yum install -y postfix dovecot
+        2.配置Postfix
+            vim /etc/postfix/main.cf
+        添加以下内容
+            smtp_banner = $myhostname ESMTP $mail_name
+            biff = no
+            append_dot_mydomain = no
+            smtpd_tls_cert_file = /CA/cacert.pem
+            smtpd_tls_key_file = /CA/cacert.pem
+            smtpd_use_tls = yes
+            smtpd_tls_auth_enable = yes
+            smtpd_sasl_auth_enable = yes
+            smtpd_sasl_type = dovecot
+            smtpd_sasl_tls_security_options = noanonymous
+            smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
+            myhostname = sdskills.com
+            mydomain = sdskills.com
+            myorigin = sdskills.com
+            mydestination = localhost
+            mynetworks = 127.0.0.0/8
+            inet_interfaces = all
+        保存退出
+        3.配置Dovecot
+            vim /etc/dovecot/dovecot.conf
+            disable_plaintext_auth = no
+            mail_location = mbox:~/mail:INBOX=/var/mail/%u
+            ssl_cert = </CA/cacert.pem
+            ssl_key = </CA/cacert.pem
+            auth_mechanisms = plain login
+        4.重启服务 systemctl restart postfix dovecot
+        5.创建user用户，编写脚本
+            for((i=1 ; i<= 99; i++)) 
+            do
+                username=”user$i”
+                password=”nichenyang”
+                useradd -m -s /bin/bash $username
+                echo “$password” | passwd --stdin $username
+                mkdir /var/mail/$username
+                chown -R $username:$username /var/mail/$username
+            done
 
